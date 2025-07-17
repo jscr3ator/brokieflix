@@ -1,5 +1,5 @@
 // TMDb API Service for BrokieFlix
-const TMDB_API_KEY = '71ff6bb5a8e8de46c14f778b39dba9e9'; // Replace with actual API key
+const TMDB_API_KEY = 'REALAPIKEY'; // Replace with actual API key
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p';
 
