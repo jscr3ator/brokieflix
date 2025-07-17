@@ -80,24 +80,6 @@ http://localhost:8080
 
 ---
 
-## 🛠 Directory Overview
-
-```
-📦 brokieflix/
- ┣ 📁 public/
- ┣ 📁 src/
- ┃ ┣ 📁 components/
- ┃ ┣ App.tsx
- ┃ ┣ main.tsx
- ┣ .env           ← 🌟 Your TMDb key goes here
- ┣ index.html
- ┣ package.json
- ┣ vite.config.ts
-```
-
----
-
-
 
 ## 🔒 Production Build
 
