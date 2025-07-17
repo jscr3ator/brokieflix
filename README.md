@@ -1,7 +1,7 @@
 
 # 🎬 BrokieFlix
 
-be free
+be free, watch all your favorite movies and tv shows!
 ---
 
 ## 🧰 Requirements
