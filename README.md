@@ -1,8 +1,7 @@
 
 # 🎬 BrokieFlix
 
-BrokieFlix is a beautiful and fast streaming website powered by React + Vite + TMDb API. It lets you search, watch, and track movies and TV shows — all in one slick interface.
-
+be free
 ---
 
 ## 🧰 Requirements
