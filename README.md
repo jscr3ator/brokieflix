@@ -17,7 +17,7 @@ BrokieFlix is a beautiful and fast streaming website powered by React + Vite + T
 ### 1. Clone this repo
 
 ```bash
-git clone https://github.com/your-username/brokieflix.git
+git clone https://github.com/jscreatordev/brokieflix.git
 cd brokieflix
 ````
 
