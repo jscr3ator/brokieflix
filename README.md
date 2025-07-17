@@ -98,7 +98,7 @@ You’ll find the optimized site inside the `dist/` folder.
 ## 🙌 Credits
 
 Built by [`@jscreator`](https://github.com/jscreator)
-Powered by TMDb, Tailwind CSS, Vite, React, Lucide Icons, and ShadCN UI.
+credit - TMBD for all details
 
 ---
 
