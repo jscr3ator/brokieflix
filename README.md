@@ -1,7 +1,8 @@
-
 # 🎬 BrokieFlix
 
 be free, watch all your favorite movies and tv shows!
+<img width="2518" height="1340" alt="image" src="https://github.com/user-attachments/assets/9654960d-6a25-4d93-8e6f-eca0bfb1607c" />
+
 ---
 
 ## 🧰 Requirements
