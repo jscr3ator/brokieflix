@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BrokieFlix - Free Movie & TV Streaming</title>
+    <meta name="description" content="Watch all your favorite movies and TV shows for free on BrokieFlix. Search, discover, and stream in high quality."/>
+    <meta name="author" content="jscreator" />
+    <link rel="icon" type="image/svg+xml" href="logo.png">
+    <link rel="icon" href="/favicon.svg" sizes="any">
+    <link rel="apple-touch-icon" href="/favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --background: 224 71% 4%;
+            --foreground: 210 40% 98%;
+            --surface: 224 71% 10%;
+            --surface-elevated: 224 71% 14%;
+            --primary: 259 95% 62%;
+            --primary-foreground: 210 40% 98%;
+            --primary-glow: 259 95% 72%;
+            --secondary: 217 33% 17%;
+            --secondary-foreground: 210 40% 98%;
+            --muted: 217 33% 25%;
+            --muted-foreground: 215 20% 65%;
+            --border: 217 33% 20%;
+            --ring: 259 95% 62%;
+            --radius: 0.75rem;
+        }
+
+        body {
+            background-color: hsl(var(--background));
+            color: hsl(var(--foreground));
+            font-family: 'Poppins', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        .glass {
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            background-color: hsl(var(--surface) / 0.7);
+            border-bottom: 1px solid hsl(var(--border) / 0.5);
+        }
+
+        .shimmer {
+            background: linear-gradient(90deg, hsl(var(--surface)) 25%, hsl(var(--surface-elevated)) 50%, hsl(var(--surface)) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite linear;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(10px); }
+        }
+
+
+        .custom-scrollbar::-webkit-scrollbar { display: none; }
+        .custom-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .hover-scale { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .hover-scale:hover { transform: scale(1.05); }
+
+        .btn-primary {
+            background-color: hsl(var(--primary));
+            color: hsl(var(--primary-foreground));
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-primary:hover {
+            background-color: hsl(var(--primary-glow));
+            transform: scale(1.05);
+            box-shadow: 0 0 25px hsl(var(--primary) / 0.5);
+        }
+        .btn-primary:disabled {
+            background-color: hsl(var(--muted));
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background-color: hsl(var(--secondary));
+            color: hsl(var(--secondary-foreground));
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-secondary:hover {
+            background-color: hsl(var(--secondary) / 0.8);
+            transform: scale(1.05);
+            border-color: hsl(var(--primary));
+        }
+
+        .glow-border:hover {
+             border-color: hsl(var(--primary));
+             box-shadow: 0 0 15px hsl(var(--primary) / 0.3);
+        }
+    </style>
+</head>
+<body class="bg-background text-foreground">
+    <div id="app" class="min-h-screen">
+        <!-- App content will be rendered here -->
+    </div>
+    <div id="modal-container"></div>
+
+    <script type="module">
+        // --- SERVICES ---
+        let TMDB_API_KEY = '';
+        const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
+        const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p';
+
+        const tmdbService = {
+            async fetchFromAPI(endpoint, params = {}) {
+                if (!TMDB_API_KEY) {
+                    console.error("TMDB API Key is not set.");
+                    return { results: [] };
+                }
+                const url = new URL(`${TMDB_BASE_URL}${endpoint}`);
+                url.searchParams.append('api_key', TMDB_API_KEY);
+                Object.entries(params).forEach(([key, value]) => url.searchParams.append(key, String(value)));
+                try {
+                    const response = await fetch(url.toString());
+                    if (!response.ok) throw new Error(`TMDb API error: ${response.status}`);
+                    return await response.json();
+                } catch (error) {
+                    console.error('TMDb API fetch error:', error);
+                    throw error;
+                }
+            },
+            getImageUrl: (path, size = 'w500') => path ? `${TMDB_IMAGE_BASE_URL}/${size}${path}` : 'https://placehold.co/500x750/0a0e1a/e0e0e0?text=No+Image',
+            getBackdropUrl: (path, size = 'w1280') => path ? `${TMDB_IMAGE_BASE_URL}/${size}${path}` : 'https://placehold.co/1280x720/0a0e1a/e0e0e0?text=No+Image',
+            getTrending: (mediaType = 'all', timeWindow = 'day') => tmdbService.fetchFromAPI(`/trending/${mediaType}/${timeWindow}`),
+            getPopularMovies: (page = 1) => tmdbService.fetchFromAPI('/movie/popular', { page }),
+            getPopularTVShows: (page = 1) => tmdbService.fetchFromAPI('/tv/popular', { page }),
+            searchMulti: (query, page = 1) => tmdbService.fetchFromAPI('/search/multi', { query, page }),
+            getMovieDetails: (id) => tmdbService.fetchFromAPI(`/movie/${id}`, { append_to_response: 'credits,recommendations' }),
+            getTVShowDetails: (id) => tmdbService.fetchFromAPI(`/tv/${id}`, { append_to_response: 'credits,recommendations' }),
+            getTVShowSeason: (id, seasonNumber) => tmdbService.fetchFromAPI(`/tv/${id}/season/${seasonNumber}`),
+        };
+
+        const streamingService = {
+            getMovieSources: (id) => ([
+                { name: 'Vidlink', url: `https://vidlink.pro/movie/${id}`},
+                { name: 'Vidsrc', url: `https://vidsrc.xyz/embed/movie/${id}`},
+                { name: '2Embed', url: `https://www.2embed.cc/embed/${id}`},
+                { name: 'Vidjoy', url: `https://vidjoy.pro/embed/movie/${id}`},
+                { name: 'Vidfast', url: `https://vidfast.pro/movie/${id}`},
+                { name: 'Vidzee', url: `https://player.vidzee.wtf/embed/movie/${id}`},
+                { name: 'Videasy', url: `https://player.videasy.net/movie/${id}`},
+                { name: 'Embed.su', url: `https://embed.su/embed/movie/${id}`},
+            ]),
+            getTVSources: (id, season, episode) => ([
+                { name: 'Vidlink', url: `https://vidlink.pro/tv/${id}/${season}/${episode}`},
+                { name: 'Vidsrc', url: `https://vidsrc.xyz/embed/tv/${id}/${season}/${episode}`},
+                { name: '2Embed', url: `https://www.2embed.cc/embedtv/${id}&s=${season}&e=${episode}`},
+                { name: 'Vidjoy', url: `https://vidjoy.pro/embed/tv/${season}/${id}`},
+                { name: 'Vidfast', url: `https://vidfast.pro/tv/${id}/${season}/${episode}`},
+                { name: 'Vidzee', url: `https://player.vidzee.wtf/embed/tv/${season}/${id}`},
+                { name: 'Videasy', url: `https://player.videasy.net/tv/${id}/${season}/${episode}`},
+                { name: 'Embed.su', url: `https://embed.su/embed/tv/${id}/${season}/${episode}`},
+            ]),
+             async getDownloadLinks(tmdbId, type, season, episode) {
+                try {
+                    let url;
+                    if (type === 'movie') {
+                        url = `https://dl.vidzee.wtf/download/movie/v1/${tmdbId}`;
+                    } else if (type === 'tv' && season && episode) {
+                        url = `https://dl.vidzee.wtf/download/tv/v1/${tmdbId}/${season}/${episode}`;
+                    } else {
+                        return [];
+                    }
+                    const response = await fetch(url);
+                    if (!response.ok) return [];
+                    const data = await response.json();
+                    return data.success ? data.downloads : [];
+                } catch (error) {
+                    console.error('Error fetching download links:', error);
+                    return [];
+                }
+            }
+        };
+
+        const storageService = {
+            CONTINUE_WATCHING_KEY: 'brokieflix_continue_watching',
+            API_KEY_NAME: 'tmdb_api_key',
+            getApiKey: () => localStorage.getItem(storageService.API_KEY_NAME),
+            setApiKey: (key) => localStorage.setItem(storageService.API_KEY_NAME, key),
+            getContinueWatching() {
+                try {
+                    const data = localStorage.getItem(this.CONTINUE_WATCHING_KEY);
+                    return data ? JSON.parse(data) : [];
+                } catch (e) { return []; }
+            },
+            addToContinueWatching(item) {
+                try {
+                    const current = this.getContinueWatching();
+                    const newItem = { ...item, timestamp: Date.now() };
+                    const filtered = current.filter(i => !(i.id === item.id && i.type === item.type && i.season === item.season && i.episode === item.episode));
+                    const updated = [newItem, ...filtered].slice(0, 20);
+                    localStorage.setItem(this.CONTINUE_WATCHING_KEY, JSON.stringify(updated));
+                } catch (e) { console.error("Failed to save to local storage", e) }
+            },
+            removeFromContinueWatching(id, type) {
+                let current = this.getContinueWatching();
+                if (type === 'tv') {
+                    current = current.filter(item => !(item.type === 'tv' && item.id === id));
+                } else {
+                    current = current.filter(item => !(item.id === id && item.type === type));
+                }
+                localStorage.setItem(this.CONTINUE_WATCHING_KEY, JSON.stringify(current));
+                renderApp();
+            },
+            clearContinueWatching() {
+                localStorage.removeItem(this.CONTINUE_WATCHING_KEY);
+                renderApp();
+            }
+        };
+        
+        // --- UI COMPONENTS & PAGES ---
+        const render = (template, containerId = 'app') => { document.getElementById(containerId).innerHTML = template; };
+
+        const Navbar = (searchQuery = '') => `
+            <nav class="fixed top-0 left-0 right-0 z-50 glass">
+                <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="flex items-center justify-between h-16">
+                        <a href="#" class="text-2xl font-bold text-[hsl(var(--primary))] hover:text-[hsl(var(--primary-glow))] transition-colors duration-300">BrokieFlix</a>
+                        <form id="search-form" class="relative">
+                            <input id="search-input" value="${searchQuery}" type="text" placeholder="Search..." class="w-48 md:w-64 bg-[hsl(var(--surface))] border border-[hsl(var(--border))] rounded-lg pl-10 pr-4 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-[hsl(var(--primary))] focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all duration-300">
+                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                        </form>
+                    </div>
+                </div>
+            </nav>
+        `;
+        
+        const HeroSection = (content) => {
+            if (!content) return `<div class="relative h-[70vh] md:h-[85vh] shimmer"></div>`;
+            const isMovie = 'title' in content;
+            const title = isMovie ? content.title : content.name;
+            const releaseDate = isMovie ? content.release_date : content.first_air_date;
+            const year = releaseDate ? new Date(releaseDate).getFullYear() : '';
+            const backdropUrl = tmdbService.getBackdropUrl(content.backdrop_path, 'w1280');
+            const playLink = isMovie ? `#player/movie/${content.id}` : `#tv/${content.id}/episodes`;
+
+            return `
+                <div class="relative h-[70vh] md:h-[85vh] overflow-hidden">
+                    <div class="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-1000 ease-in-out" style="background-image: url(${backdropUrl});"></div>
+                    <div class="absolute inset-0 bg-gradient-to-r from-[hsl(var(--background))] via-[hsl(var(--background))/0.8] to-transparent"></div>
+                    <div class="absolute inset-0 bg-gradient-to-t from-[hsl(var(--background))] to-transparent"></div>
+                    <div class="relative h-full flex items-center">
+                        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                            <div class="max-w-2xl space-y-6 fade-in">
+                                <h1 class="text-4xl md:text-6xl lg:text-7xl font-bold text-foreground leading-tight">${title}</h1>
+                                <div class="flex items-center space-x-4 text-muted-foreground">
+                                    <div class="flex items-center space-x-1">
+                                        <svg class="w-4 h-4 text-yellow-500 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                                        <span>${content.vote_average.toFixed(1)}</span>
+                                    </div>
+                                    ${year ? `<span>${year}</span>` : ''}
+                                    <span class="px-2 py-1 bg-[hsl(var(--primary)/0.2)] text-[hsl(var(--primary))] rounded text-sm font-medium">${isMovie ? 'Movie' : 'TV Series'}</span>
+                                </div>
+                                <p class="text-lg md:text-xl text-foreground/90 leading-relaxed" style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">${content.overview}</p>
+                                <div class="flex flex-col sm:flex-row gap-4">
+                                    <a href="${playLink}" class="btn-primary flex items-center justify-center space-x-2 text-lg rounded-lg px-6 py-3 font-semibold">
+                                        <svg class="w-5 h-5 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                        <span>${isMovie ? 'Play Now' : 'Episodes'}</span>
+                                    </a>
+                                    <a href="#info/${isMovie ? 'movie' : 'tv'}/${content.id}" class="btn-secondary flex items-center justify-center space-x-2 text-lg border border-border rounded-lg px-6 py-3 font-semibold">
+                                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                                        <span>More Info</span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+        
+        const ContentRow = ({ title, items, isLoading = false }) => {
+            if (isLoading) {
+                return `
+                    <div class="space-y-4 animate-pulse">
+                        <div class="h-8 w-1/4 bg-surface-elevated rounded-md mx-4 sm:mx-6 lg:mx-8"></div>
+                        <div class="relative px-4 sm:px-6 lg:px-8">
+                            <div class="flex space-x-4 overflow-hidden">
+                                ${Array(6).fill('').map(() => `
+                                    <div class="flex-shrink-0 w-40 md:w-48">
+                                        <div class="shimmer aspect-[2/3] rounded-lg"></div>
+                                        <div class="mt-2 h-4 shimmer rounded w-full"></div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>`;
+            }
+            if (!items || items.length === 0) return '';
+            
+            return `
+                <div class="space-y-4">
+                    <h2 class="text-2xl font-bold text-foreground px-4 sm:px-6 lg:px-8">${title}</h2>
+                    <div class="relative group">
+                         <div class="flex space-x-4 overflow-x-auto custom-scrollbar px-4 sm:px-6 lg:px-8 py-2">
+                            ${items.map(item => {
+                                const isMovie = 'title' in item;
+                                const itemTitle = isMovie ? item.title : item.name;
+                                const posterUrl = tmdbService.getImageUrl(item.poster_path, 'w300');
+                                return `
+                                    <a href="#info/${isMovie ? 'movie' : 'tv'}/${item.id}" class="flex-shrink-0 w-40 md:w-48 group/item hover-scale">
+                                        <div class="relative overflow-hidden rounded-lg">
+                                            <img src="${posterUrl}" alt="${itemTitle}" class="w-full aspect-[2/3] object-cover bg-surface" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/300x450/0a0e1a/e0e0e0?text=Error';">
+                                            <div class="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover/item:opacity-100 transition-opacity duration-300">
+                                                <div class="p-3 bg-[hsl(var(--primary)/0.8)] backdrop-blur-sm rounded-full">
+                                                     <svg class="w-5 h-5 fill-current text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <h3 class="mt-2 text-foreground font-semibold text-sm line-clamp-2 group-hover/item:text-[hsl(var(--primary))] transition-colors duration-300">${itemTitle}</h3>
+                                    </a>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        const ContinueWatchingRow = () => {
+            const continueWatchingItems = storageService.getContinueWatching();
+            
+            const groupedShows = continueWatchingItems.reduce((acc, item) => {
+                const key = item.type === 'tv' ? `tv-${item.id}` : `movie-${item.id}`;
+                if (!acc[key]) {
+                    acc[key] = { ...item, isGroup: item.type === 'tv', episodes: item.type === 'tv' ? [item] : [] };
+                } else if (item.type === 'tv') {
+                    acc[key].episodes.push(item);
+                    if (item.timestamp > acc[key].timestamp) {
+                       acc[key] = { ...acc[key], ...item };
+                    }
+                }
+                return acc;
+            }, {});
+
+            const items = Object.values(groupedShows).sort((a, b) => b.timestamp - a.timestamp);
+
+            if (items.length === 0) return '';
+            
+            return `
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between px-4 sm:px-6 lg:px-8">
+                        <h2 class="text-2xl font-bold text-foreground">Continue Watching</h2>
+                        <button id="clear-watching-btn" class="text-sm text-muted-foreground hover:text-[hsl(var(--primary))] transition-colors">Clear All</button>
+                    </div>
+                    <div class="relative group">
+                         <div class="flex space-x-4 overflow-x-auto custom-scrollbar px-4 sm:px-6 lg:px-8 py-2">
+                            ${items.map(item => {
+                                const posterUrl = tmdbService.getImageUrl(item.poster_path, 'w300');
+                                const playLink = item.type === 'tv' ? `#player/tv/${item.id}/${item.season}/${item.episode}` : `#player/movie/${item.id}`;
+                                const titleText = item.type === 'tv' ? `${item.title}` : item.title;
+                                const subText = item.type === 'tv' ? `<p class="text-xs text-muted-foreground">Last: S${item.season} E${item.episode}</p>` : '';
+
+                                return `
+                                    <div class="flex-shrink-0 w-64 group/item">
+                                        <div class="relative bg-surface rounded-lg overflow-hidden glow-border flex items-center h-28">
+                                            <a href="${playLink}" class="flex-shrink-0">
+                                                <img src="${posterUrl}" alt="${item.title}" class="w-20 h-28 object-cover" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/200x300/0a0e1a/e0e0e0?text=Error';">
+                                            </a>
+                                            <div class="p-3 flex-1">
+                                                <a href="${playLink}" class="font-semibold text-foreground line-clamp-2 group-hover/item:text-[hsl(var(--primary))] transition-colors">${titleText}</a>
+                                                ${subText}
+                                            </div>
+                                            <button data-id="${item.id}" data-type="${item.type}" class="remove-watching-btn absolute top-2 right-2 p-1.5 bg-black/50 rounded-full text-white hover:bg-red-600 transition-all opacity-0 group-hover/item:opacity-100">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        const HomePage = async () => {
+            render(`
+                ${Navbar()}
+                <main class="pt-16">
+                    <div class="relative h-[70vh] md:h-[85vh] shimmer"></div>
+                    <div class="space-y-12 pb-12 mt-12">
+                        <div class="shimmer h-48 w-full"></div>
+                    </div>
+                </main>
+            `);
+            const trending = await tmdbService.getTrending('all', 'day');
+            const heroContent = trending.results.find(item => item.backdrop_path) || trending.results[0];
+
+            render(`
+                ${Navbar()}
+                <main class="pt-16">
+                    <div id="hero"></div>
+                    <div id="content-rows" class="space-y-12 pb-12 mt-12"></div>
+                </main>
+            `);
+            
+            document.getElementById('hero').innerHTML = HeroSection(heroContent);
+            
+            const rowsContainer = document.getElementById('content-rows');
+            rowsContainer.innerHTML = ContinueWatchingRow();
+
+            const rows = [
+                { title: "Trending Now", promise: tmdbService.getTrending('all', 'day') },
+                { title: "Popular Movies", promise: tmdbService.getPopularMovies() },
+                { title: "Popular TV Shows", promise: tmdbService.getPopularTVShows() },
+            ];
+
+            for (const row of rows) {
+                const rowEl = document.createElement('div');
+                rowsContainer.appendChild(rowEl);
+                rowEl.innerHTML = ContentRow({ title: row.title, isLoading: true });
+                const data = await row.promise;
+                rowEl.innerHTML = ContentRow({ title: row.title, items: data.results });
+            }
+
+            attachNavEvents();
+        };
+
+        const SearchPage = async (query) => {
+            render(`
+                ${Navbar(decodeURIComponent(query))}
+                <main class="pt-24 container mx-auto px-4 sm:px-6 lg:px-8">
+                    <h1 class="text-3xl font-bold mb-8">Searching for "${decodeURIComponent(query)}"...</h1>
+                    ${ContentRow({ title: "Results", isLoading: true })}
+                </main>
+            `);
+            const results = await tmdbService.searchMulti(query);
+            const contentItems = results.results.filter(item => (item.media_type === 'movie' || item.media_type === 'tv') && item.poster_path);
+            document.querySelector('main').innerHTML = `
+                <h1 class="text-3xl font-bold mb-8">Results for "${decodeURIComponent(query)}"</h1>
+                ${contentItems.length > 0 ? ContentRow({ title: "", items: contentItems }) : '<p class="text-muted-foreground text-center py-16">No results found.</p>'}
+            `;
+            attachNavEvents(decodeURIComponent(query));
+        };
+
+        const InfoPage = async (type, id) => {
+            render(`${Navbar()}<div class="min-h-screen bg-background pt-16 shimmer"></div>`);
+            const data = type === 'movie' ? await tmdbService.getMovieDetails(id) : await tmdbService.getTVShowDetails(id);
+            const isMovie = 'title' in data;
+            const title = isMovie ? data.title : data.name;
+            const playLink = isMovie ? `#player/movie/${id}` : `#tv/${id}/episodes`;
+
+            const playButtonHTML = 
+                `<a href="${playLink}" class="btn-primary inline-flex items-center justify-center space-x-2 text-lg rounded-lg px-6 py-3 font-semibold">
+                    ${isMovie 
+                        ? `<svg class="w-5 h-5 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><span>Play Now</span>`
+                        : `<svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Episodes & Seasons</span>`
+                    }
+                 </a>`;
+
+            render(`
+                ${Navbar()}
+                <main class="pt-16">
+                    <div class="relative h-[60vh] md:h-[70vh]">
+                        <div class="absolute inset-0 bg-cover bg-center" style="background-image: url(${tmdbService.getBackdropUrl(data.backdrop_path)})"></div>
+                        <div class="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent"></div>
+                         <div class="relative h-full flex items-end container mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+                            <div class="flex flex-col md:flex-row gap-8 items-end">
+                                <img src="${tmdbService.getImageUrl(data.poster_path)}" alt="${title}" class="w-48 md:w-64 aspect-[2/3] object-cover rounded-lg shadow-xl -mb-16 md:-mb-24 glow-border">
+                                <div class="space-y-4">
+                                    <h1 class="text-4xl md:text-6xl font-bold text-foreground">${title}</h1>
+                                    ${playButtonHTML}
+                                </div>
+                            </div>
+                         </div>
+                    </div>
+                     <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:pt-32">
+                        <p class="max-w-3xl text-foreground/90 leading-relaxed mb-8">${data.overview}</p>
+                        ${data.recommendations && data.recommendations.results.length > 0 ? ContentRow({ title: "More Like This", items: data.recommendations.results }) : ''}
+                     </div>
+                </main>
+            `);
+            attachNavEvents();
+        };
+        
+        const EpisodesPage = async (id) => {
+            render(`${Navbar()}<div class="min-h-screen bg-background pt-16 shimmer"></div>`);
+            const showData = await tmdbService.getTVShowDetails(id);
+            
+            render(`
+                ${Navbar()}
+                <main class="pt-16">
+                    <div class="relative h-[50vh] min-h-[300px]">
+                        <div class="absolute inset-0 bg-cover bg-center" style="background-image: url(${tmdbService.getBackdropUrl(showData.backdrop_path)})"></div>
+                        <div class="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent"></div>
+                        <div class="relative h-full flex flex-col justify-end container mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+                             <h1 class="text-4xl md:text-5xl font-bold text-foreground">${showData.name}</h1>
+                             <p class="text-lg text-muted-foreground mt-2">Seasons & Episodes</p>
+                        </div>
+                    </div>
+                    <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                        <div id="season-selector-container" class="relative w-full max-w-xs mb-6">
+                           <!-- Custom dropdown will be injected here by JS -->
+                        </div>
+                        <div id="episodes-list" class="flex flex-col gap-4">
+                            <div class="shimmer h-40 rounded-lg"></div>
+                            <div class="shimmer h-40 rounded-lg"></div>
+                            <div class="shimmer h-40 rounded-lg"></div>
+                        </div>
+                    </div>
+                </main>
+            `);
+            attachNavEvents();
+
+            const seasonSelectorContainer = document.getElementById('season-selector-container');
+            const seasons = showData.seasons.filter(s => s.season_number > 0 && s.episode_count > 0);
+            
+            if (seasonSelectorContainer) {
+                seasonSelectorContainer.innerHTML = `
+                    <button id="season-selector-trigger" class="w-full flex items-center justify-between p-3 bg-surface-elevated border border-border text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[hsl(var(--background))] focus:ring-[hsl(var(--primary))] transition-all">
+                        <span id="season-selector-label"></span>
+                        <svg class="w-5 h-5 text-muted-foreground transition-transform" id="season-chevron" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                    </button>
+                    <div id="season-selector-panel" class="hidden absolute top-full mt-2 w-full bg-[hsl(var(--surface-elevated))] border border-[hsl(var(--border))] rounded-md shadow-lg z-50">
+                        <div class="p-2 space-y-1">
+                            ${seasons.map(s => `<button class="season-option w-full text-left px-3 py-2 text-sm rounded hover:bg-[hsl(var(--surface))] transition-colors" data-season-number="${s.season_number}" data-season-name="${s.name} (${s.episode_count} episodes)">${s.name} (${s.episode_count} episodes)</button>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+
+            const fetchAndRenderEpisodes = async (seasonNumber) => {
+                const episodesList = document.getElementById('episodes-list');
+                episodesList.innerHTML = Array(10).fill('').map(() => `<div class="shimmer h-40 rounded-lg"></div>`).join('');
+                
+                const seasonData = await tmdbService.getTVShowSeason(showData.id, seasonNumber);
+                episodesList.innerHTML = seasonData.episodes.map(ep => `
+                    <a href="#player/tv/${showData.id}/${seasonNumber}/${ep.episode_number}" class="episode-item flex items-center gap-4 md:gap-6 p-4 rounded-lg hover:bg-[hsl(var(--surface))]-elevated group border border-transparent hover:border-border transition-all duration-300">
+                       <div class="text-xl font-bold text-muted-foreground w-8 text-center flex-shrink-0">${ep.episode_number}</div>
+                       <div class="relative w-40 md:w-48 h-24 md:h-28 flex-shrink-0">
+                          <img src="${tmdbService.getImageUrl(ep.still_path, 'w300')}" class="w-full h-full object-cover rounded-md bg-surface" onerror="this.onerror=null;this.src='https://placehold.co/300x169/0a0e1a/e0e0e0?text=No+Image';">
+                          <div class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                             <svg class="w-10 h-10 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                          </div>
+                       </div>
+                       <div class="flex-1">
+                         <div class="flex justify-between items-start">
+                             <h4 class="font-bold text-base md:text-lg text-foreground group-hover:text-[hsl(var(--primary))]">${ep.name}</h4>
+                             <span class="text-sm text-muted-foreground flex-shrink-0 ml-4">${ep.runtime ? `${ep.runtime}m` : ''}</span>
+                         </div>
+                         <p class="text-sm text-muted-foreground line-clamp-2 md:line-clamp-3 mt-2">${ep.overview || 'No description available.'}</p>
+                       </div>
+                    </a>
+                `).join('');
+            };
+            
+            const trigger = document.getElementById('season-selector-trigger');
+            const panel = document.getElementById('season-selector-panel');
+            const label = document.getElementById('season-selector-label');
+            const chevron = document.getElementById('season-chevron');
+
+            if(trigger && panel && label && chevron) {
+                // Set initial label
+                if (seasons.length > 0) {
+                    const firstSeason = seasons[0];
+                    label.textContent = `${firstSeason.name} (${firstSeason.episode_count} episodes)`;
+                } else {
+                    label.textContent = 'No Seasons Available';
+                }
+
+                trigger.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const isHidden = panel.classList.contains('hidden');
+                    panel.classList.toggle('hidden', !isHidden);
+                    chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+                });
+
+                document.querySelectorAll('.season-option').forEach(option => {
+                    option.addEventListener('click', () => {
+                        const seasonNumber = option.dataset.seasonNumber;
+                        const seasonName = option.dataset.seasonName;
+                        label.textContent = seasonName;
+                        panel.classList.add('hidden');
+                        chevron.style.transform = 'rotate(0deg)';
+                        fetchAndRenderEpisodes(seasonNumber);
+                    });
+                });
+
+                window.addEventListener('click', (e) => {
+                    if (seasonSelectorContainer && !seasonSelectorContainer.contains(e.target)) {
+                        panel.classList.add('hidden');
+                        chevron.style.transform = 'rotate(0deg)';
+                    }
+                });
+
+                if (seasons.length > 0) {
+                    fetchAndRenderEpisodes(seasons[0].season_number);
+                } else {
+                    document.getElementById('episodes-list').innerHTML = `<p class="text-muted-foreground">No seasons available for this show.</p>`
+                }
+            }
+        };
+        
+        const PlayerPage = async (type, id, season = 1, episode = 1) => {
+            render(`<div class="h-screen w-screen bg-black flex items-center justify-center"><div class="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-[hsl(var(--primary))]"></div></div>`);
+            
+            const contentDetails = type === 'tv' ? await tmdbService.getTVShowDetails(id) : await tmdbService.getMovieDetails(id);
+            if (contentDetails) {
+                 storageService.addToContinueWatching({ 
+                     id: parseInt(id), 
+                     type, 
+                     season, 
+                     episode, 
+                     title: contentDetails.title || contentDetails.name, 
+                     poster_path: contentDetails.poster_path 
+                });
+            }
+            
+            const seasonData = type === 'tv' ? await tmdbService.getTVShowSeason(id, season) : null;
+            let sources = type === 'movie' ? streamingService.getMovieSources(id) : streamingService.getTVSources(id, season, episode);
+            const downloadLinks = await streamingService.getDownloadLinks(id, type, season, episode);
+
+            const currentEpisodeIndex = seasonData ? seasonData.episodes.findIndex(e => e.episode_number == episode) : -1;
+            const nextEpisode = seasonData && currentEpisodeIndex > -1 && currentEpisodeIndex < seasonData.episodes.length - 1 ? seasonData.episodes[currentEpisodeIndex + 1] : null;
+
+            render(`
+                <div class="h-screen w-screen bg-black flex flex-col">
+                    <div class="p-2 bg-black flex items-center justify-between z-10">
+                         <a href="#info/${type}/${id}" class="text-white hover:text-[hsl(var(--primary))] transition-colors text-sm flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg> Back
+                        </a>
+                        <div class="flex items-center gap-4">
+                            <div id="sources-container" class="relative"></div>
+                            <div id="download-container" class="relative"></div>
+                            ${nextEpisode ? `<a href="#player/tv/${id}/${season}/${nextEpisode.episode_number}" class="btn-primary text-sm px-4 py-2 rounded-md flex items-center gap-2">Next Ep <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></a>` : ''}
+                        </div>
+                    </div>
+                    <iframe id="player-iframe" src="${sources[0]?.url || ''}" class="w-full h-full flex-1 border-0" allowfullscreen></iframe>
+                </div>
+            `);
+            
+            // Source Dropdown
+            const sourcesContainer = document.getElementById('sources-container');
+            if(sources.length > 0) {
+                sourcesContainer.innerHTML = `
+                    <button id="sources-btn" class="source-btn px-3 py-1 text-xs rounded bg-gray-700 text-white flex items-center gap-1">
+                        <span>Source: ${sources[0].name}</span>
+                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                    </button>
+                    <div id="sources-dropdown" class="absolute top-full right-0 mt-2 w-48 bg-surface border border-border rounded-lg shadow-xl hidden">
+                        <div class="p-1">${sources.map(source => `<button class="source-option w-full text-left px-3 py-2 text-xs rounded hover:bg-[hsl(var(--surface))]-elevated" data-url="${source.url}" data-name="${source.name}">${source.name}</button>`).join('')}</div>
+                    </div>
+                `;
+                 document.getElementById('sources-btn').addEventListener('click', () => document.getElementById('sources-dropdown').classList.toggle('hidden'));
+                 document.querySelectorAll('.source-option').forEach(button => {
+                    button.addEventListener('click', e => {
+                        const url = e.target.dataset.url;
+                        const name = e.target.dataset.name;
+                        document.getElementById('player-iframe').src = url;
+                        document.querySelector('#sources-btn span').textContent = `Source: ${name}`;
+                        document.getElementById('sources-dropdown').classList.add('hidden');
+                    });
+                });
+            }
+
+            // Download Dropdown
+            const downloadContainer = document.getElementById('download-container');
+            if (downloadLinks.length > 0) {
+              downloadContainer.innerHTML = `
+                <button id="download-btn" class="text-sm flex items-center gap-2 hover:text-[hsl(var(--primary))] text-white">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </button>
+                <div id="download-dropdown" class="absolute top-full right-0 mt-2 w-56 bg-surface border border-border rounded-lg shadow-xl hidden">
+                  <div class="p-2 space-y-1">${downloadLinks.map(link => `<a href="${link.url}" target="_blank" rel="noopener noreferrer" class="block px-3 py-2 text-xs text-foreground hover:bg-[hsl(var(--surface))]-elevated rounded-md"><div class="flex justify-between"><span>${link.quality}</span><span class="text-muted-foreground">${link.size || ''}</span></div></a>`).join('')}</div>
+                </div>
+              `;
+              document.getElementById('download-btn').addEventListener('click', () => document.getElementById('download-dropdown').classList.toggle('hidden'));
+            }
+        };
+        
+        // --- ROUTER & APP LOGIC ---
+        const routes = {
+            '': HomePage,
+            '#search/:query': SearchPage,
+            '#info/:type/:id': InfoPage,
+            '#tv/:id/episodes': EpisodesPage,
+            '#player/:type/:id': PlayerPage,
+            '#player/:type/:id/:season/:episode': PlayerPage,
+        };
+
+        const renderApp = () => {
+            const path = location.hash.split('?')[0] || '#';
+            
+            const clearApiKeyBtn = document.getElementById('clear-api-key-btn');
+            if (clearApiKeyBtn) {
+                 if(path === '' || path === '#') {
+                    clearApiKeyBtn.classList.remove('hidden');
+                } else {
+                    clearApiKeyBtn.classList.add('hidden');
+                }
+            }
+            
+            let params = {};
+            const potentialRoute = Object.keys(routes).find(route => {
+                const routeParts = route.split('/');
+                const pathParts = path.split('/');
+                if(routeParts.length !== pathParts.length) return false;
+                
+                return routeParts.every((part, i) => {
+                    if (part.startsWith(':')) {
+                        params[part.substring(1)] = decodeURIComponent(pathParts[i]);
+                        return true;
+                    }
+                    return part === pathParts[i];
+                });
+            });
+            const routeHandler = routes[potentialRoute] || HomePage;
+            routeHandler(...Object.values(params));
+        };
+        
+        const attachNavEvents = (searchQuery = '') => {
+            const searchForm = document.getElementById('search-form');
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) searchInput.value = searchQuery;
+
+            searchForm?.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const query = searchInput.value.trim();
+                if (query) location.hash = `#search/${encodeURIComponent(query)}`;
+            });
+
+            document.getElementById('clear-watching-btn')?.addEventListener('click', () => storageService.clearContinueWatching());
+
+            document.querySelectorAll('.remove-watching-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const { id, type } = e.currentTarget.dataset;
+                    storageService.removeFromContinueWatching(parseInt(id), type);
+                });
+            });
+        };
+        
+        const ApiKeyModal = () => `
+            <div class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 fade-in">
+              <div class="bg-surface rounded-lg w-full max-w-sm m-4 p-6 space-y-4">
+                <h2 class="text-2xl font-bold">Enter TMDB API Key</h2>
+                <p class="text-muted-foreground">This site requires a TMDB API key to function. Please get one for free from <a href="https://www.themoviedb.org/settings/api" target="_blank" class="text-[hsl(var(--primary))] underline">themoviedb.org</a>.</p>
+                <input id="api-key-input" type="text" class="w-full bg-surface-elevated border border-border rounded-md p-2" placeholder="Your TMDB API Key...">
+                <button id="save-api-key-btn" class="btn-primary w-full mt-4 py-2 rounded-lg font-semibold">Save and Continue</button>
+              </div>
+            </div>
+        `;
+
+        const initApp = () => {
+            TMDB_API_KEY = storageService.getApiKey();
+            if (!TMDB_API_KEY) {
+                render(ApiKeyModal());
+                document.getElementById('save-api-key-btn').addEventListener('click', () => {
+                    const key = document.getElementById('api-key-input').value.trim();
+                    if (key) {
+                        storageService.setApiKey(key);
+                        location.reload();
+                    }
+                });
+            } else {
+                window.addEventListener('hashchange', renderApp);
+                window.addEventListener('load', renderApp);
+                renderApp();
+            }
+            
+            const clearApiKeyBtn = document.getElementById('clear-api-key-btn');
+            if (clearApiKeyBtn) {
+                clearApiKeyBtn.addEventListener('click', () => {
+                    localStorage.removeItem(storageService.API_KEY_NAME);
+                    location.reload();
+                });
+            }
+        };
+
+        // --- INIT ---
+        initApp();
+
+    </script>
+</body>
+</html>
+
