@@ -1,74 +1,20 @@
 # 🎬 BrokieFlix
 
 be free, watch all your favorite movies and tv shows!
-<img width="2518" height="1340" alt="image" src="https://github.com/user-attachments/assets/9654960d-6a25-4d93-8e6f-eca0bfb1607c" />
-
+<img width="2284" height="1343" alt="image" src="https://github.com/user-attachments/assets/7ac15949-2a8f-438d-99bc-a450b80acd29" />
 ---
 
-## 🧰 Requirements
-
-- ✅ Node.js v18 or later
-- ✅ npm (comes with Node)
-
----
-
-## 🚀 Getting Started (with npm)
-
-### 1. Clone this repo
-
-```bash
-git clone https://github.com/jscreatordev/brokieflix.git
-cd brokieflix
-````
-
-### 2. Install all dependencies
-
-```bash
-npm install
-```
-
-Thanks! Here's the updated **README.md** section with that clarification added:
-
----
-
-### ✅ Add Your TMDb API Key
-
-You need a TMDb API key to fetch movie and TV data.
-
-#### 🔹 Option 1: Directly in Code (Recommended for Local Dev)
-
-Open this file:
-
-```
-src/services/tmdb.ts
-```
-
-Go to **line 2** and replace the placeholder:
-
-```ts
-// src/services/tmdb.ts
-const TMDB_API_KEY = 'YOUR_ACTUAL_TMDB_API_KEY_HERE';
-```
-
-➡️ Paste your real TMDb API key inside the quotes.
-
-> 🔑 Don’t have one? Get it free from [https://www.themoviedb.org/settings/api](https://www.themoviedb.org/settings/api)
 
 
-### 4. Run the website locally
+## Installation:
+> 1. [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/jscr3ator/brokieflix)  
+or run locally!
 
-```bash
-npm install
-npx vite
-```
+> 2. Get a free TMBID key from [https://www.themoviedb.org/settings/api](https://www.themoviedb.org/settings/api)
 
-Then open your browser and go to:
+<img width="1994" height="1183" alt="image" src="https://github.com/user-attachments/assets/de2a0d48-c34b-4b5e-b992-7bb42355350a" />
+and paste it here.
 
-```
-http://localhost:8080
-```
-
----
 
 ## 🧪 How It Works
 
@@ -79,21 +25,6 @@ http://localhost:8080
 * Tracks your progress in **Continue Watching**
 
 ---
-
-
-## 🔒 Production Build
-
-To build the site for deployment:
-
-```bash
-npm run build
-```
-
-You’ll find the optimized site inside the `dist/` folder.
-
----
-
-
 
 ## 🙌 Credits
 
