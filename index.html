@@ -110,12 +110,93 @@
              border-color: hsl(var(--primary));
              box-shadow: 0 0 15px hsl(var(--primary) / 0.3);
         }
+
+        /* Toggle Switch Styles */
+        .toggle-switch-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            background-color: hsl(var(--surface));
+            border-radius: 9999px;
+            padding: 4px;
+            border: 1px solid hsl(var(--border));
+        }
+
+        .toggle-switch-option {
+            position: relative;
+            z-index: 10;
+            padding: 6px 12px;
+            font-size: 14px;
+            font-weight: 500;
+            color: hsl(var(--muted-foreground));
+            cursor: pointer;
+            transition: color 0.4s cubic-bezier(0.2, 0, 0, 1);
+            border-radius: 9999px;
+        }
+
+        .toggle-switch-option.active {
+            color: hsl(var(--primary-foreground));
+        }
+
+        .toggle-switch-slider {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            height: calc(100% - 8px);
+            background-color: hsl(var(--primary));
+            border-radius: 9999px;
+            transition: transform 0.4s cubic-bezier(0.2, 0, 0, 1), width 0.4s cubic-bezier(0.2, 0, 0, 1);
+            box-shadow: 0 0 15px hsl(var(--primary) / 0.5);
+        }
+        
+        .modal-content {
+            animation: slideInUp 0.4s cubic-bezier(0.2, 0, 0, 1) forwards;
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* Page Refresh Animation */
+        .page-refresh-out {
+            animation: page-refresh-out 0.3s ease-in forwards;
+        }
+        @keyframes page-refresh-out {
+            from { opacity: 1; transform: scale(1); }
+            to { opacity: 0; transform: scale(0.97); }
+        }
+        .page-refresh-in {
+            animation: page-refresh-in 0.4s ease-out forwards;
+        }
+        @keyframes page-refresh-in {
+            from { opacity: 0; transform: scale(0.97); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* Input Fixes */
+        input[type="text"] {
+            color: hsl(var(--foreground));
+        }
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover, 
+        input:-webkit-autofill:focus, 
+        input:-webkit-autofill:active{
+            -webkit-box-shadow: 0 0 0 30px hsl(var(--surface-elevated)) inset !important;
+            -webkit-text-fill-color: hsl(var(--foreground)) !important;
+            caret-color: hsl(var(--foreground)) !important;
+        }
     </style>
 </head>
 <body class="bg-background text-foreground">
     <div id="app" class="min-h-screen">
-        <!-- App content will be rendered here -->
-    </div>
+        </div>
     <div id="modal-container"></div>
 
     <script type="module">
@@ -123,6 +204,7 @@
         let TMDB_API_KEY = '';
         const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
         const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p';
+        const CONSUMET_API_URL = 'https://api.consumet.org';
 
         const tmdbService = {
             async fetchFromAPI(endpoint, params = {}) {
@@ -132,7 +214,9 @@
                 }
                 const url = new URL(`${TMDB_BASE_URL}${endpoint}`);
                 url.searchParams.append('api_key', TMDB_API_KEY);
-                Object.entries(params).forEach(([key, value]) => url.searchParams.append(key, String(value)));
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value) url.searchParams.append(key, String(value))
+                });
                 try {
                     const response = await fetch(url.toString());
                     if (!response.ok) throw new Error(`TMDb API error: ${response.status}`);
@@ -145,12 +229,13 @@
             getImageUrl: (path, size = 'w500') => path ? `${TMDB_IMAGE_BASE_URL}/${size}${path}` : 'https://placehold.co/500x750/0a0e1a/e0e0e0?text=No+Image',
             getBackdropUrl: (path, size = 'w1280') => path ? `${TMDB_IMAGE_BASE_URL}/${size}${path}` : 'https://placehold.co/1280x720/0a0e1a/e0e0e0?text=No+Image',
             getTrending: (mediaType = 'all', timeWindow = 'day') => tmdbService.fetchFromAPI(`/trending/${mediaType}/${timeWindow}`),
-            getPopularMovies: (page = 1) => tmdbService.fetchFromAPI('/movie/popular', { page }),
-            getPopularTVShows: (page = 1) => tmdbService.fetchFromAPI('/tv/popular', { page }),
+            getPopularMovies: (page = 1, options = {}) => tmdbService.fetchFromAPI('/movie/popular', { page, ...options }),
+            getPopularTVShows: (page = 1, options = {}) => tmdbService.fetchFromAPI('/tv/popular', { page, ...options }),
             searchMulti: (query, page = 1) => tmdbService.fetchFromAPI('/search/multi', { query, page }),
-            getMovieDetails: (id) => tmdbService.fetchFromAPI(`/movie/${id}`, { append_to_response: 'credits,recommendations' }),
-            getTVShowDetails: (id) => tmdbService.fetchFromAPI(`/tv/${id}`, { append_to_response: 'credits,recommendations' }),
+            getMovieDetails: (id) => tmdbService.fetchFromAPI(`/movie/${id}`, { append_to_response: 'credits,recommendations,keywords,videos' }),
+            getTVShowDetails: (id) => tmdbService.fetchFromAPI(`/tv/${id}`, { append_to_response: 'credits,recommendations,keywords,videos' }),
             getTVShowSeason: (id, seasonNumber) => tmdbService.fetchFromAPI(`/tv/${id}/season/${seasonNumber}`),
+            discover: (type, params) => tmdbService.fetchFromAPI(`/discover/${type}`, params),
         };
 
         const streamingService = {
@@ -174,6 +259,37 @@
                 { name: 'Videasy', url: `https://player.videasy.net/tv/${id}/${season}/${episode}`},
                 { name: 'Embed.su', url: `https://embed.su/embed/tv/${id}/${season}/${episode}`},
             ]),
+            async getAnimeSources(title, episodeNumber) {
+                try {
+                    // 1. Search for the anime on Gogoanime via Consumet API
+                    const searchRes = await fetch(`${CONSUMET_API_URL}/anime/gogoanime/${encodeURIComponent(title)}`);
+                    if (!searchRes.ok) throw new Error('Failed to search for anime.');
+                    const searchData = await searchRes.json();
+                    const anime = searchData.results?.[0];
+                    if (!anime) throw new Error('Anime not found on Gogoanime.');
+                    
+                    // 2. Get anime details to find the episode ID
+                    const detailsRes = await fetch(`${CONSUMET_API_URL}/anime/gogoanime/info/${anime.id}`);
+                    if (!detailsRes.ok) throw new Error('Failed to get anime details.');
+                    const detailsData = await detailsRes.json();
+                    const episode = detailsData.episodes?.find(ep => ep.number == episodeNumber);
+                    if (!episode) throw new Error(`Episode ${episodeNumber} not found.`);
+
+                    // 3. Get streaming sources for the episode
+                    const sourcesRes = await fetch(`${CONSUMET_API_URL}/anime/gogoanime/watch/${episode.id}`);
+                    if (!sourcesRes.ok) throw new Error('Failed to get streaming sources.');
+                    const sourcesData = await sourcesRes.json();
+                    
+                    // 4. Format the sources
+                    return sourcesData.sources?.map(s => ({
+                        name: `Gogoanime (${s.quality})`,
+                        url: s.url,
+                    })) || [];
+                } catch (error) {
+                    console.error("Error fetching anime sources:", error);
+                    return []; // Return empty array on error instead of an error object
+                }
+            },
              async getDownloadLinks(tmdbId, type, season, episode) {
                 try {
                     let url;
@@ -196,57 +312,91 @@
         };
 
         const storageService = {
-            CONTINUE_WATCHING_KEY: 'brokieflix_continue_watching',
             API_KEY_NAME: 'tmdb_api_key',
+            USER_KEY_NAME: 'brokieflix_user',
+            GENRES_KEY_NAME: 'brokieflix_genres',
+            getUser: () => JSON.parse(localStorage.getItem(storageService.USER_KEY_NAME)),
+            setUser: (user) => localStorage.setItem(storageService.USER_KEY_NAME, JSON.stringify(user)),
+            getContinueWatchingKey: (mode) => `brokieflix_continue_watching_${mode}`,
             getApiKey: () => localStorage.getItem(storageService.API_KEY_NAME),
             setApiKey: (key) => localStorage.setItem(storageService.API_KEY_NAME, key),
-            getContinueWatching() {
+            getSelectedGenres: () => JSON.parse(localStorage.getItem(storageService.GENRES_KEY_NAME) || '{}'),
+            setSelectedGenres: (genres) => localStorage.setItem(storageService.GENRES_KEY_NAME, JSON.stringify(genres)),
+            getContinueWatching(mode) {
                 try {
-                    const data = localStorage.getItem(this.CONTINUE_WATCHING_KEY);
+                    const data = localStorage.getItem(this.getContinueWatchingKey(mode));
                     return data ? JSON.parse(data) : [];
                 } catch (e) { return []; }
             },
-            addToContinueWatching(item) {
+            addToContinueWatching(item, mode) {
                 try {
-                    const current = this.getContinueWatching();
+                    const current = this.getContinueWatching(mode);
                     const newItem = { ...item, timestamp: Date.now() };
                     const filtered = current.filter(i => !(i.id === item.id && i.type === item.type && i.season === item.season && i.episode === item.episode));
                     const updated = [newItem, ...filtered].slice(0, 20);
-                    localStorage.setItem(this.CONTINUE_WATCHING_KEY, JSON.stringify(updated));
+                    localStorage.setItem(this.getContinueWatchingKey(mode), JSON.stringify(updated));
                 } catch (e) { console.error("Failed to save to local storage", e) }
             },
-            removeFromContinueWatching(id, type) {
-                let current = this.getContinueWatching();
+            removeFromContinueWatching(id, type, mode) {
+                let current = this.getContinueWatching(mode);
                 if (type === 'tv') {
                     current = current.filter(item => !(item.type === 'tv' && item.id === id));
                 } else {
                     current = current.filter(item => !(item.id === id && item.type === type));
                 }
-                localStorage.setItem(this.CONTINUE_WATCHING_KEY, JSON.stringify(current));
+                localStorage.setItem(this.getContinueWatchingKey(mode), JSON.stringify(current));
                 renderApp();
             },
-            clearContinueWatching() {
-                localStorage.removeItem(this.CONTINUE_WATCHING_KEY);
-                renderApp();
+            clearContinueWatching(mode) {
+                localStorage.removeItem(this.getContinueWatchingKey(mode));
+            },
+            logout() {
+                localStorage.removeItem(this.API_KEY_NAME);
+                localStorage.removeItem(this.USER_KEY_NAME);
+                localStorage.removeItem(this.GENRES_KEY_NAME);
+                localStorage.removeItem(this.getContinueWatchingKey('all'));
+                localStorage.removeItem(this.getContinueWatchingKey('kids'));
+                localStorage.removeItem(this.getContinueWatchingKey('anime'));
+                location.reload();
             }
         };
         
         // --- UI COMPONENTS & PAGES ---
         const render = (template, containerId = 'app') => { document.getElementById(containerId).innerHTML = template; };
 
-        const Navbar = (searchQuery = '') => `
+        const Navbar = (searchQuery = '') => {
+            const user = storageService.getUser();
+            return `
             <nav class="fixed top-0 left-0 right-0 z-50 glass">
                 <div class="container mx-auto px-4 sm:px-6 lg:px-8">
                     <div class="flex items-center justify-between h-16">
                         <a href="#" class="text-2xl font-bold text-[hsl(var(--primary))] hover:text-[hsl(var(--primary-glow))] transition-colors duration-300">BrokieFlix</a>
-                        <form id="search-form" class="relative">
-                            <input id="search-input" value="${searchQuery}" type="text" placeholder="Search..." class="w-48 md:w-64 bg-[hsl(var(--surface))] border border-[hsl(var(--border))] rounded-lg pl-10 pr-4 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-[hsl(var(--primary))] focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all duration-300">
-                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                        </form>
+                        <div class="flex items-center gap-2 md:gap-3">
+                            <div class="flex items-center bg-[hsl(var(--surface))] border border-[hsl(var(--border))] rounded-full">
+                                <div id="toggle-switch" class="toggle-switch-container !border-none !p-0">
+                                    <div class="toggle-switch-slider"></div>
+                                    <div class="toggle-switch-option" data-mode="all">All</div>
+                                    <div class="toggle-switch-option" data-mode="kids">Kids</div>
+                                    <div class="toggle-switch-option" data-mode="anime">Anime</div>
+                                </div>
+                                <div id="genre-picker-container" class="relative"></div>
+                            </div>
+                            <button id="surprise-me-btn" class="p-2.5 bg-[hsl(var(--surface))] border border-[hsl(var(--border))] rounded-full text-muted-foreground hover:text-[hsl(var(--primary))] hover:border-[hsl(var(--primary))] transition-all">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 8 4 4-4 4"/><path d="m6 8-4 4 4 4"/><path d="M14.5 4l-5 16"/></svg>
+                            </button>
+                            <form id="search-form" class="relative">
+                                <input id="search-input" value="${searchQuery}" type="text" placeholder="Search..." class="w-32 md:w-48 bg-[hsl(var(--surface))] border border-[hsl(var(--border))] rounded-full pl-10 pr-4 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-[hsl(var(--primary))] focus:ring-1 focus:ring-[hsl(var(--primary))] transition-all duration-300">
+                                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                            </form>
+                             <a href="#settings" class="flex-shrink-0">
+                                <div class="w-10 h-10 bg-primary rounded-full flex items-center justify-center font-bold text-primary-foreground text-lg">${user ? user.username.charAt(0).toUpperCase() : ''}</div>
+                             </a>
+                        </div>
                     </div>
                 </div>
             </nav>
         `;
+        }
         
         const HeroSection = (content) => {
             if (!content) return `<div class="relative h-[70vh] md:h-[85vh] shimmer"></div>`;
@@ -292,12 +442,12 @@
             `;
         };
         
-        const ContentRow = ({ title, items, isLoading = false }) => {
+        const ContentRow = ({ title, items, isLoading = false, id = '' }) => {
             if (isLoading) {
                 return `
-                    <div class="space-y-4 animate-pulse">
+                    <div class="space-y-4 animate-pulse" ${id ? `id="${id}"` : ''}>
                         <div class="h-8 w-1/4 bg-surface-elevated rounded-md mx-4 sm:mx-6 lg:mx-8"></div>
-                        <div class="relative px-4 sm:px-6 lg:px-8">
+                        <div class="relative px-4 sm:px-6 lg:mx-8">
                             <div class="flex space-x-4 overflow-hidden">
                                 ${Array(6).fill('').map(() => `
                                     <div class="flex-shrink-0 w-40 md:w-48">
@@ -312,16 +462,17 @@
             if (!items || items.length === 0) return '';
             
             return `
-                <div class="space-y-4">
+                <div class="space-y-4" ${id ? `id="${id}"` : ''}>
                     <h2 class="text-2xl font-bold text-foreground px-4 sm:px-6 lg:px-8">${title}</h2>
                     <div class="relative group">
                          <div class="flex space-x-4 overflow-x-auto custom-scrollbar px-4 sm:px-6 lg:px-8 py-2">
                             ${items.map(item => {
-                                const isMovie = 'title' in item;
-                                const itemTitle = isMovie ? item.title : item.name;
+                                const isMovie = 'title' in item || item.media_type === 'movie';
+                                const itemTitle = isMovie ? (item.title || item.original_title) : (item.name || item.original_name);
                                 const posterUrl = tmdbService.getImageUrl(item.poster_path, 'w300');
+                                const mediaType = item.media_type || (isMovie ? 'movie' : 'tv');
                                 return `
-                                    <a href="#info/${isMovie ? 'movie' : 'tv'}/${item.id}" class="flex-shrink-0 w-40 md:w-48 group/item hover-scale">
+                                    <a href="#info/${mediaType}/${item.id}" class="flex-shrink-0 w-40 md:w-48 group/item hover-scale">
                                         <div class="relative overflow-hidden rounded-lg">
                                             <img src="${posterUrl}" alt="${itemTitle}" class="w-full aspect-[2/3] object-cover bg-surface" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/300x450/0a0e1a/e0e0e0?text=Error';">
                                             <div class="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover/item:opacity-100 transition-opacity duration-300">
@@ -341,7 +492,7 @@
         };
 
         const ContinueWatchingRow = () => {
-            const continueWatchingItems = storageService.getContinueWatching();
+            const continueWatchingItems = storageService.getContinueWatching(appState.mode);
             
             const groupedShows = continueWatchingItems.reduce((acc, item) => {
                 const key = item.type === 'tv' ? `tv-${item.id}` : `movie-${item.id}`;
@@ -400,15 +551,30 @@
         const HomePage = async () => {
             render(`
                 ${Navbar()}
-                <main class="pt-16">
+                <main class="pt-16 page-refresh-in">
                     <div class="relative h-[70vh] md:h-[85vh] shimmer"></div>
                     <div class="space-y-12 pb-12 mt-12">
                         <div class="shimmer h-48 w-full"></div>
                     </div>
                 </main>
             `);
-            const trending = await tmdbService.getTrending('all', 'day');
-            const heroContent = trending.results.find(item => item.backdrop_path) || trending.results[0];
+             attachNavEvents();
+            
+            let heroContentPromise;
+            const animeKeyword = '210024';
+            switch(appState.mode) {
+                case 'kids':
+                    heroContentPromise = tmdbService.discover('movie', { with_genres: '10751,16', sort_by: 'popularity.desc', without_keywords: animeKeyword });
+                    break;
+                case 'anime':
+                    heroContentPromise = tmdbService.discover('tv', { with_genres: '16', with_keywords: animeKeyword, sort_by: 'popularity.desc' });
+                    break;
+                default:
+                    heroContentPromise = tmdbService.getTrending('all', 'day');
+            }
+
+            const heroData = await heroContentPromise;
+            const heroContent = heroData.results.find(item => item.backdrop_path) || heroData.results[0];
 
             render(`
                 ${Navbar()}
@@ -423,11 +589,27 @@
             const rowsContainer = document.getElementById('content-rows');
             rowsContainer.innerHTML = ContinueWatchingRow();
 
-            const rows = [
-                { title: "Trending Now", promise: tmdbService.getTrending('all', 'day') },
-                { title: "Popular Movies", promise: tmdbService.getPopularMovies() },
-                { title: "Popular TV Shows", promise: tmdbService.getPopularTVShows() },
-            ];
+            let rows = [];
+            switch (appState.mode) {
+                case 'kids':
+                    rows = [
+                        { title: "Popular Kids Movies", promise: tmdbService.discover('movie', { with_genres: '10751,16', certification_country: 'US', 'certification.lte': 'PG', without_keywords: animeKeyword }) },
+                        { title: "Popular Kids TV Shows", promise: tmdbService.discover('tv', { with_genres: '10751,16', 'air_date.gte': '2000-01-01', 'vote_average.gte': 6, without_keywords: animeKeyword }) },
+                    ];
+                    break;
+                case 'anime':
+                    rows = [
+                        { title: "Top Airing Anime", promise: tmdbService.discover('tv', { with_genres: '16', with_keywords: '210024|287501', sort_by: 'popularity.desc' }) },
+                        { title: "Popular Anime Movies", promise: tmdbService.discover('movie', { with_genres: '16', with_keywords: '210024|287501', sort_by: 'popularity.desc' }) },
+                    ];
+                    break;
+                default: // 'all'
+                    rows = [
+                        { title: "Trending Now", promise: tmdbService.getTrending('all', 'day') },
+                        { title: "Popular Movies", promise: tmdbService.getPopularMovies() },
+                        { title: "Popular TV Shows", promise: tmdbService.getPopularTVShows() },
+                    ];
+            }
 
             for (const row of rows) {
                 const rowEl = document.createElement('div');
@@ -436,6 +618,19 @@
                 const data = await row.promise;
                 rowEl.innerHTML = ContentRow({ title: row.title, items: data.results });
             }
+
+            // Render selected genre rows
+            const selectedGenres = storageService.getSelectedGenres();
+            for (const [id, name] of Object.entries(selectedGenres)) {
+                 if (appState.mode !== 'all') continue;
+                const genreRowContainer = document.createElement('div');
+                genreRowContainer.id = `genre-row-${id}`;
+                rowsContainer.appendChild(genreRowContainer);
+                genreRowContainer.innerHTML = ContentRow({ title: name, isLoading: true });
+                const data = await tmdbService.discover('movie', { with_genres: id, sort_by: 'popularity.desc' });
+                genreRowContainer.innerHTML = ContentRow({ title: name, items: data.results });
+            }
+
 
             attachNavEvents();
         };
@@ -448,11 +643,29 @@
                     ${ContentRow({ title: "Results", isLoading: true })}
                 </main>
             `);
+            attachNavEvents(decodeURIComponent(query));
             const results = await tmdbService.searchMulti(query);
-            const contentItems = results.results.filter(item => (item.media_type === 'movie' || item.media_type === 'tv') && item.poster_path);
+            
+            const initialItems = results.results.filter(item => (item.media_type === 'movie' || item.media_type === 'tv') && item.poster_path);
+            let contentItems = [];
+
+            switch (appState.mode) {
+                case 'kids':
+                    const kidsGenreIds = [16, 10751, 10762]; // Animation, Family, Kids
+                    contentItems = initialItems.filter(item => item.genre_ids && item.genre_ids.some(id => kidsGenreIds.includes(id)));
+                    break;
+                case 'anime':
+                    const animeGenreId = 16; // Animation
+                    contentItems = initialItems.filter(item => item.genre_ids && item.genre_ids.includes(animeGenreId));
+                    break;
+                default: // 'all'
+                    contentItems = initialItems;
+                    break;
+            }
+
             document.querySelector('main').innerHTML = `
                 <h1 class="text-3xl font-bold mb-8">Results for "${decodeURIComponent(query)}"</h1>
-                ${contentItems.length > 0 ? ContentRow({ title: "", items: contentItems }) : '<p class="text-muted-foreground text-center py-16">No results found.</p>'}
+                ${contentItems.length > 0 ? ContentRow({ title: "", items: contentItems }) : `<p class="text-muted-foreground text-center py-16">No results found for this category.</p>`}
             `;
             attachNavEvents(decodeURIComponent(query));
         };
@@ -513,9 +726,7 @@
                         </div>
                     </div>
                     <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                        <div id="season-selector-container" class="relative w-full max-w-xs mb-6">
-                           <!-- Custom dropdown will be injected here by JS -->
-                        </div>
+                        <div id="season-selector-container" class="relative w-full max-w-xs mb-6"></div>
                         <div id="episodes-list" class="flex flex-col gap-4">
                             <div class="shimmer h-40 rounded-lg"></div>
                             <div class="shimmer h-40 rounded-lg"></div>
@@ -543,28 +754,27 @@
                 `;
             }
 
-
             const fetchAndRenderEpisodes = async (seasonNumber) => {
                 const episodesList = document.getElementById('episodes-list');
                 episodesList.innerHTML = Array(10).fill('').map(() => `<div class="shimmer h-40 rounded-lg"></div>`).join('');
                 
                 const seasonData = await tmdbService.getTVShowSeason(showData.id, seasonNumber);
                 episodesList.innerHTML = seasonData.episodes.map(ep => `
-                    <a href="#player/tv/${showData.id}/${seasonNumber}/${ep.episode_number}" class="episode-item flex items-center gap-4 md:gap-6 p-4 rounded-lg hover:bg-[hsl(var(--surface))]-elevated group border border-transparent hover:border-border transition-all duration-300">
-                       <div class="text-xl font-bold text-muted-foreground w-8 text-center flex-shrink-0">${ep.episode_number}</div>
-                       <div class="relative w-40 md:w-48 h-24 md:h-28 flex-shrink-0">
-                          <img src="${tmdbService.getImageUrl(ep.still_path, 'w300')}" class="w-full h-full object-cover rounded-md bg-surface" onerror="this.onerror=null;this.src='https://placehold.co/300x169/0a0e1a/e0e0e0?text=No+Image';">
-                          <div class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                             <svg class="w-10 h-10 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                          </div>
-                       </div>
-                       <div class="flex-1">
-                         <div class="flex justify-between items-start">
-                             <h4 class="font-bold text-base md:text-lg text-foreground group-hover:text-[hsl(var(--primary))]">${ep.name}</h4>
-                             <span class="text-sm text-muted-foreground flex-shrink-0 ml-4">${ep.runtime ? `${ep.runtime}m` : ''}</span>
-                         </div>
-                         <p class="text-sm text-muted-foreground line-clamp-2 md:line-clamp-3 mt-2">${ep.overview || 'No description available.'}</p>
-                       </div>
+                    <a href="#player/tv/${showData.id}/${seasonNumber}/${ep.episode_number}" class="episode-item flex items-center gap-4 md:gap-6 p-4 rounded-lg hover:bg-[hsl(var(--surface))]-elevated group transition-all duration-300">
+                        <div class="text-xl font-bold text-muted-foreground w-8 text-center flex-shrink-0">${ep.episode_number}</div>
+                        <div class="relative w-40 md:w-48 h-24 md:h-28 flex-shrink-0">
+                           <img src="${tmdbService.getImageUrl(ep.still_path, 'w300')}" class="w-full h-full object-cover rounded-md bg-surface" onerror="this.onerror=null;this.src='https://placehold.co/300x169/0a0e1a/e0e0e0?text=No+Image';">
+                           <div class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                               <svg class="w-10 h-10 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                           </div>
+                        </div>
+                        <div class="flex-1">
+                           <div class="flex justify-between items-start">
+                               <h4 class="font-bold text-base md:text-lg text-foreground group-hover:text-[hsl(var(--primary))]">${ep.name}</h4>
+                               <span class="text-sm text-muted-foreground flex-shrink-0 ml-4">${ep.runtime ? `${ep.runtime}m` : ''}</span>
+                           </div>
+                           <p class="text-sm text-muted-foreground line-clamp-2 md:line-clamp-3 mt-2">${ep.overview || 'No description available.'}</p>
+                        </div>
                     </a>
                 `).join('');
             };
@@ -620,19 +830,29 @@
             render(`<div class="h-screen w-screen bg-black flex items-center justify-center"><div class="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-[hsl(var(--primary))]"></div></div>`);
             
             const contentDetails = type === 'tv' ? await tmdbService.getTVShowDetails(id) : await tmdbService.getMovieDetails(id);
+            const isAnime = contentDetails.keywords?.results?.some(k => k.name === 'anime') || contentDetails.genres?.some(g => g.name === 'Animation');
+            const title = contentDetails.title || contentDetails.name;
+
             if (contentDetails) {
                  storageService.addToContinueWatching({ 
                      id: parseInt(id), 
                      type, 
                      season, 
                      episode, 
-                     title: contentDetails.title || contentDetails.name, 
+                     title: title, 
                      poster_path: contentDetails.poster_path 
-                });
+                 }, appState.mode);
             }
             
+            let sources = [];
+            if (isAnime) {
+                 sources = await streamingService.getAnimeSources(title, episode);
+            }
+            // Add other sources as fallbacks
+            const otherSources = type === 'movie' ? streamingService.getMovieSources(id) : streamingService.getTVSources(id, season, episode);
+            sources.push(...otherSources);
+
             const seasonData = type === 'tv' ? await tmdbService.getTVShowSeason(id, season) : null;
-            let sources = type === 'movie' ? streamingService.getMovieSources(id) : streamingService.getTVSources(id, season, episode);
             const downloadLinks = await streamingService.getDownloadLinks(id, type, season, episode);
 
             const currentEpisodeIndex = seasonData ? seasonData.episodes.findIndex(e => e.episode_number == episode) : -1;
@@ -642,13 +862,13 @@
                 <div class="h-screen w-screen bg-black flex flex-col">
                     <div class="p-2 bg-black flex items-center justify-between z-10">
                          <a href="#info/${type}/${id}" class="text-white hover:text-[hsl(var(--primary))] transition-colors text-sm flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg> Back
-                        </a>
-                        <div class="flex items-center gap-4">
-                            <div id="sources-container" class="relative"></div>
-                            <div id="download-container" class="relative"></div>
-                            ${nextEpisode ? `<a href="#player/tv/${id}/${season}/${nextEpisode.episode_number}" class="btn-primary text-sm px-4 py-2 rounded-md flex items-center gap-2">Next Ep <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></a>` : ''}
-                        </div>
+                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg> Back
+                         </a>
+                         <div class="flex items-center gap-4">
+                             <div id="sources-container" class="relative"></div>
+                             <div id="download-container" class="relative"></div>
+                             ${nextEpisode ? `<a href="#player/tv/${id}/${season}/${nextEpisode.episode_number}" class="btn-primary text-sm px-4 py-2 rounded-md flex items-center gap-2">Next Ep <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></a>` : ''}
+                         </div>
                     </div>
                     <iframe id="player-iframe" src="${sources[0]?.url || ''}" class="w-full h-full flex-1 border-0" allowfullscreen></iframe>
                 </div>
@@ -656,7 +876,7 @@
             
             // Source Dropdown
             const sourcesContainer = document.getElementById('sources-container');
-            if(sources.length > 0) {
+            if(sources.length > 0 && sources[0].url) {
                 sourcesContainer.innerHTML = `
                     <button id="sources-btn" class="source-btn px-3 py-1 text-xs rounded bg-gray-700 text-white flex items-center gap-1">
                         <span>Source: ${sources[0].name}</span>
@@ -668,14 +888,14 @@
                 `;
                  document.getElementById('sources-btn').addEventListener('click', () => document.getElementById('sources-dropdown').classList.toggle('hidden'));
                  document.querySelectorAll('.source-option').forEach(button => {
-                    button.addEventListener('click', e => {
-                        const url = e.target.dataset.url;
-                        const name = e.target.dataset.name;
-                        document.getElementById('player-iframe').src = url;
-                        document.querySelector('#sources-btn span').textContent = `Source: ${name}`;
-                        document.getElementById('sources-dropdown').classList.add('hidden');
-                    });
-                });
+                     button.addEventListener('click', e => {
+                         const url = e.target.dataset.url;
+                         const name = e.target.dataset.name;
+                         document.getElementById('player-iframe').src = url;
+                         document.querySelector('#sources-btn span').textContent = `Source: ${name}`;
+                         document.getElementById('sources-dropdown').classList.add('hidden');
+                     });
+                 });
             }
 
             // Download Dropdown
@@ -692,8 +912,85 @@
               document.getElementById('download-btn').addEventListener('click', () => document.getElementById('download-dropdown').classList.toggle('hidden'));
             }
         };
+
+        const SettingsPage = () => {
+            const user = storageService.getUser();
+            const apiKey = storageService.getApiKey();
+
+            const historyAll = storageService.getContinueWatching('all');
+            const historyKids = storageService.getContinueWatching('kids');
+            const historyAnime = storageService.getContinueWatching('anime');
+            
+            const combinedHistory = [...historyAll, ...historyKids, ...historyAnime];
+            const uniqueHistoryMap = new Map();
+            combinedHistory.forEach(item => {
+                const key = `${item.type}-${item.id}-${item.season || 0}-${item.episode || 0}`;
+                if (!uniqueHistoryMap.has(key) || uniqueHistoryMap.get(key).timestamp < item.timestamp) {
+                    uniqueHistoryMap.set(key, item);
+                }
+            });
+            const continueWatchingItems = Array.from(uniqueHistoryMap.values()).sort((a, b) => b.timestamp - a.timestamp);
+
+            render(`
+                ${Navbar()}
+                <main class="pt-24 container mx-auto px-4 sm:px-6 lg:px-8">
+                    <h1 class="text-4xl font-bold mb-8">Settings</h1>
+                    <div class="space-y-12">
+                         <div class="bg-surface-elevated p-6 rounded-lg">
+                            <h2 class="text-2xl font-semibold mb-4">Profile</h2>
+                            <div class="flex items-center space-x-4">
+                               <div class="w-16 h-16 bg-primary rounded-full flex items-center justify-center font-bold text-primary-foreground text-3xl">${user.username.charAt(0).toUpperCase()}</div>
+                               <div>
+                                  <p class="text-xl font-bold">${user.username}</p>
+                                  <p class="text-muted-foreground">Welcome to BrokieFlix!</p>
+                               </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-surface-elevated p-6 rounded-lg">
+                            <h2 class="text-2xl font-semibold mb-4">TMDB API Key</h2>
+                            <input id="api-key-input" type="text" class="w-full bg-surface border border-border rounded-md p-2 mb-4" value="${apiKey}">
+                            <button id="save-api-key-btn" class="btn-primary px-6 py-2 rounded-lg font-semibold">Save Key</button>
+                        </div>
+                        
+                        <div class="bg-surface-elevated p-6 rounded-lg">
+                            <div class="flex items-center justify-between mb-4">
+                                <h2 class="text-2xl font-semibold">Full Watch History</h2>
+                                <button id="clear-history-btn" class="btn-secondary text-sm px-4 py-2 rounded-lg">Clear All History</button>
+                            </div>
+                            <div class="max-h-96 overflow-y-auto space-y-3 custom-scrollbar pr-2">
+                                ${continueWatchingItems.length > 0 ? continueWatchingItems.map(item => `
+                                    <div class="flex items-center bg-surface p-2 rounded-md">
+                                        <img src="${tmdbService.getImageUrl(item.poster_path, 'w300')}" class="w-12 h-16 object-cover rounded-md mr-4">
+                                        <div class="flex-grow">
+                                            <p class="font-semibold">${item.title}</p>
+                                            ${item.type === 'tv' ? `<p class="text-xs text-muted-foreground">S${item.season} E${item.episode}</p>`: ''}
+                                        </div>
+                                    </div>
+                                `).join('') : '<p class="text-muted-foreground">No watch history yet.</p>'}
+                            </div>
+                        </div>
+
+                         <div class="bg-surface-elevated p-6 rounded-lg">
+                            <h2 class="text-2xl font-semibold mb-4">Account</h2>
+                            <button id="logout-btn" class="bg-red-600/20 text-red-400 hover:bg-red-600/40 w-full py-3 rounded-lg font-semibold transition-colors">Log Out & Clear All Data</button>
+                         </div>
+                    </div>
+                </main>
+            `);
+            attachNavEvents(); // Re-attach nav events, especially for the settings page buttons
+        };
         
         // --- ROUTER & APP LOGIC ---
+        const appState = {
+            mode: localStorage.getItem('brokieflix_mode') || 'all',
+            genres: [
+                {id: 35, name: 'Comedy'}, {id: 27, name: 'Horror'}, {id: 10749, name: 'Romance'},
+                {id: 28, name: 'Action'}, {id: 12, name: 'Adventure'}, {id: 878, name: 'Sci-Fi'},
+                {id: 53, name: 'Thriller'}, {id: 80, name: 'Crime'}, {id: 99, name: 'Documentary'}
+            ]
+        };
+
         const routes = {
             '': HomePage,
             '#search/:query': SearchPage,
@@ -701,6 +998,7 @@
             '#tv/:id/episodes': EpisodesPage,
             '#player/:type/:id': PlayerPage,
             '#player/:type/:id/:season/:episode': PlayerPage,
+            '#settings': SettingsPage,
         };
 
         const renderApp = () => {
@@ -709,10 +1007,10 @@
             const clearApiKeyBtn = document.getElementById('clear-api-key-btn');
             if (clearApiKeyBtn) {
                  if(path === '' || path === '#') {
-                    clearApiKeyBtn.classList.remove('hidden');
-                } else {
-                    clearApiKeyBtn.classList.add('hidden');
-                }
+                     clearApiKeyBtn.classList.remove('hidden');
+                 } else {
+                     clearApiKeyBtn.classList.add('hidden');
+                 }
             }
             
             let params = {};
@@ -733,7 +1031,7 @@
             routeHandler(...Object.values(params));
         };
         
-        const attachNavEvents = (searchQuery = '') => {
+       const attachNavEvents = (searchQuery = '') => {
             const searchForm = document.getElementById('search-form');
             const searchInput = document.getElementById('search-input');
             if (searchInput) searchInput.value = searchQuery;
@@ -744,17 +1042,191 @@
                 if (query) location.hash = `#search/${encodeURIComponent(query)}`;
             });
 
-            document.getElementById('clear-watching-btn')?.addEventListener('click', () => storageService.clearContinueWatching());
+            document.getElementById('clear-watching-btn')?.addEventListener('click', () => storageService.clearContinueWatching(appState.mode));
 
             document.querySelectorAll('.remove-watching-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const { id, type } = e.currentTarget.dataset;
-                    storageService.removeFromContinueWatching(parseInt(id), type);
+                    storageService.removeFromContinueWatching(parseInt(id), type, appState.mode);
                 });
             });
+            
+            document.getElementById('surprise-me-btn')?.addEventListener('click', showSurpriseModal);
+
+            const toggleSwitch = document.getElementById('toggle-switch');
+            const slider = toggleSwitch?.querySelector('.toggle-switch-slider');
+            const options = toggleSwitch?.querySelectorAll('.toggle-switch-option');
+
+            const setActiveToggle = (mode) => {
+                appState.mode = mode;
+                localStorage.setItem('brokieflix_mode', mode);
+                const genreContainer = document.getElementById('genre-picker-container');
+
+                if (genreContainer) {
+                    if (mode === 'all') {
+                        genreContainer.style.display = 'block';
+                    } else {
+                        genreContainer.style.display = 'none';
+                    }
+                }
+
+                options?.forEach(opt => {
+                    const isActive = opt.dataset.mode === mode;
+                    opt.classList.toggle('active', isActive);
+                    if (isActive) {
+                        slider.style.width = `${opt.offsetWidth}px`;
+                        slider.style.transform = `translateX(${opt.offsetLeft - 4}px)`;
+                    }
+                });
+            };
+            
+            options?.forEach(option => {
+                option.addEventListener('click', () => {
+                    if (appState.mode === option.dataset.mode) return;
+
+                    const appContainer = document.getElementById('app');
+                    appContainer.classList.add('page-refresh-out');
+                    
+                    appContainer.addEventListener('animationend', () => {
+                        appContainer.classList.remove('page-refresh-out');
+                        setActiveToggle(option.dataset.mode);
+                        location.hash = '';
+                        renderApp();
+                    }, { once: true });
+                });
+            });
+
+            if (toggleSwitch) {
+                // Initial setup
+                setTimeout(() => setActiveToggle(appState.mode), 100);
+            }
+            
+            // Genre Picker
+            const genreContainer = document.getElementById('genre-picker-container');
+            if (genreContainer) {
+                 const selectedGenres = storageService.getSelectedGenres();
+                 genreContainer.innerHTML = `
+                    <button id="genre-picker-btn" class="pr-3 pl-2 py-2.5 text-muted-foreground hover:text-[hsl(var(--primary))] transition-colors border-l border-[hsl(var(--border))]">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </button>
+                    <div id="genre-dropdown" class="hidden absolute top-full right-0 mt-4 w-64 bg-surface-elevated border border-border rounded-lg shadow-xl">
+                        <div class="p-2 text-sm font-semibold text-foreground border-b border-border">Add sections to homepage</div>
+                        <div class="p-2 grid grid-cols-2 gap-2">
+                           ${appState.genres.map(g => `
+                                <label class="flex items-center space-x-2 p-2 rounded-md hover:bg-surface transition-colors cursor-pointer">
+                                    <input type="checkbox" data-genre-id="${g.id}" data-genre-name="${g.name}" class="genre-checkbox accent-[hsl(var(--primary))] w-4 h-4" ${selectedGenres[g.id] ? 'checked' : ''}>
+                                    <span class="text-sm">${g.name}</span>
+                                </label>
+                           `).join('')}
+                        </div>
+                    </div>
+                 `;
+                document.getElementById('genre-picker-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    document.getElementById('genre-dropdown').classList.toggle('hidden');
+                });
+                document.querySelectorAll('.genre-checkbox').forEach(box => box.addEventListener('change', handleGenreChange));
+            }
+            
+            // Settings Page specific events
+            document.getElementById('save-api-key-btn')?.addEventListener('click', () => {
+                const key = document.getElementById('api-key-input').value.trim();
+                if (key) {
+                    storageService.setApiKey(key);
+                    alert('API Key Saved!'); // A simple notification
+                }
+            });
+            document.getElementById('clear-history-btn')?.addEventListener('click', () => {
+                if (confirm('Are you sure you want to clear your entire watch history? This cannot be undone.')) {
+                    storageService.clearContinueWatching('all');
+                    storageService.clearContinueWatching('kids');
+                    storageService.clearContinueWatching('anime');
+                    renderApp(); // Re-render settings page to show empty list
+                }
+            });
+            document.getElementById('logout-btn')?.addEventListener('click', () => {
+                if(confirm('Are you sure you want to log out? All your data will be cleared.')) {
+                    storageService.logout();
+                }
+            });
         };
-        
+
+        const handleGenreChange = (e) => {
+            const { genreId, genreName } = e.target.dataset;
+            let selectedGenres = storageService.getSelectedGenres();
+
+            if (e.target.checked) {
+                selectedGenres[genreId] = genreName;
+                const rowsContainer = document.getElementById('content-rows');
+                const newRow = document.createElement('div');
+                newRow.id = `genre-row-${genreId}`;
+                rowsContainer.appendChild(newRow);
+                newRow.innerHTML = ContentRow({ title: genreName, isLoading: true });
+                tmdbService.discover('movie', { with_genres: genreId, sort_by: 'popularity.desc' }).then(data => {
+                    newRow.innerHTML = ContentRow({ title: genreName, items: data.results, id: `genre-row-${genreId}` });
+                });
+            } else {
+                delete selectedGenres[genreId];
+                document.getElementById(`genre-row-${genreId}`)?.remove();
+            }
+            storageService.setSelectedGenres(selectedGenres);
+        }
+
+        const showSurpriseModal = async () => {
+             const modalContainer = document.getElementById('modal-container');
+             modalContainer.innerHTML = `
+                 <div class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 fade-in">
+                     <div class="animate-spin rounded-full h-24 w-24 border-t-2 border-b-2 border-[hsl(var(--primary))]"></div>
+                 </div>
+             `;
+             
+             const trending = await tmdbService.getTrending('all', 'week');
+             const randomItem = trending.results[Math.floor(Math.random() * trending.results.length)];
+             const details = randomItem.media_type === 'tv' ? await tmdbService.getTVShowDetails(randomItem.id) : await tmdbService.getMovieDetails(randomItem.id);
+
+             const trailer = details.videos?.results?.find(v => v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser'));
+             const isMovie = details.media_type === 'movie' || 'title' in details;
+
+             modalContainer.innerHTML = `
+                <div id="surprise-modal-backdrop" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 fade-in">
+                    <div class="bg-surface-elevated rounded-lg w-full max-w-3xl modal-content relative overflow-hidden">
+                        <div class="aspect-video bg-black">
+                           ${trailer ? `<iframe src="https://www.youtube.com/embed/${trailer.key}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&iv_load_policy=3&modestbranding=1&loop=1&playlist=${trailer.key}" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen class="w-full h-full"></iframe>` : `<img src="${tmdbService.getBackdropUrl(details.backdrop_path)}" class="w-full h-full object-cover">`}
+                        </div>
+                        <div class="p-6">
+                            <h2 class="text-3xl font-bold">${details.title || details.name}</h2>
+                            <p class="text-muted-foreground mt-2 line-clamp-3">${details.overview}</p>
+                             <div class="flex gap-4 mt-6">
+                                <a href="#info/${isMovie ? 'movie' : 'tv'}/${details.id}" id="modal-more-info" class="btn-primary w-full py-3 rounded-lg text-center font-semibold">More Info</a>
+                                <button id="modal-close-btn" class="btn-secondary w-full py-3 rounded-lg font-semibold">Close</button>
+                             </div>
+                        </div>
+                        <button id="modal-outer-close-btn" class="absolute top-3 right-3 p-2 bg-black/50 rounded-full hover:bg-black/80 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+                </div>
+             `;
+             
+             const closeModal = () => modalContainer.innerHTML = '';
+             document.getElementById('surprise-modal-backdrop').addEventListener('click', (e) => { if(e.target.id === 'surprise-modal-backdrop') closeModal() });
+             document.getElementById('modal-close-btn').addEventListener('click', closeModal);
+             document.getElementById('modal-outer-close-btn').addEventListener('click', closeModal);
+             document.getElementById('modal-more-info').addEventListener('click', closeModal);
+        }
+
+        const OnboardingModal = () => `
+             <div class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 fade-in">
+               <div class="bg-surface rounded-lg w-full max-w-sm m-4 p-6 space-y-4">
+                 <h2 class="text-2xl font-bold">Welcome to BrokieFlix!</h2>
+                 <p class="text-muted-foreground">Please enter a username to get started.</p>
+                 <input id="username-input" type="text" class="w-full bg-surface-elevated border border-border rounded-md p-2" placeholder="Your username...">
+                 <button id="save-username-btn" class="btn-primary w-full mt-4 py-2 rounded-lg font-semibold">Continue</button>
+               </div>
+             </div>
+        `;
+
         const ApiKeyModal = () => `
             <div class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 fade-in">
               <div class="bg-surface rounded-lg w-full max-w-sm m-4 p-6 space-y-4">
@@ -767,6 +1239,19 @@
         `;
 
         const initApp = () => {
+            const user = storageService.getUser();
+            if(!user) {
+                render(OnboardingModal());
+                document.getElementById('save-username-btn').addEventListener('click', () => {
+                    const username = document.getElementById('username-input').value.trim();
+                    if(username) {
+                        storageService.setUser({ username });
+                        initApp(); // Re-run init to check for API key
+                    }
+                });
+                return;
+            }
+
             TMDB_API_KEY = storageService.getApiKey();
             if (!TMDB_API_KEY) {
                 render(ApiKeyModal());
@@ -782,14 +1267,6 @@
                 window.addEventListener('load', renderApp);
                 renderApp();
             }
-            
-            const clearApiKeyBtn = document.getElementById('clear-api-key-btn');
-            if (clearApiKeyBtn) {
-                clearApiKeyBtn.addEventListener('click', () => {
-                    localStorage.removeItem(storageService.API_KEY_NAME);
-                    location.reload();
-                });
-            }
         };
 
         // --- INIT ---
@@ -798,4 +1275,3 @@
     </script>
 </body>
 </html>
-
